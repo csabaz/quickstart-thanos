@@ -15,7 +15,7 @@ services:
       - '--providers.docker=true'
       - '--providers.docker.exposedByDefault=false'
       - '--api=true'
-      - '--global.middlewares=default-auth"
+      - '--global.middlewares=default-auth'
       - '--metrics.prometheus.addrouterslabels=true'
       #- '--certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory'
       - '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
