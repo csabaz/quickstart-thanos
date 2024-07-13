@@ -16,6 +16,7 @@ services:
       - '--providers.docker=true'
       - '--providers.docker.exposedByDefault=false'
       - '--api=true'
+      - '--global.middlewares=default-auth"
       - '--metrics.prometheus.addrouterslabels=true'
       #- '--certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory'
       - '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
@@ -39,8 +40,8 @@ services:
       - 'traefik.http.routers.traefik.tls=true'
       - 'traefik.http.routers.traefik.tls.certresolver=letsencrypt'
       - 'traefik.docker.network=proxy'
-      - 'traefik.http.routers.traefik.middlewares=auth'
-      - 'traefik.http.middlewares.auth.basicauth.users=${tr_basicauth_user}:${tr_basicauth_passwd}'
+      - 'traefik.http.routers.traefik.middlewares=default-auth'
+      - 'traefik.http.middlewares.default-auth.basicauth.users=${user1}:${pass1},${user2}:${pass2}'
     ports:
       - '80:80'
       - '443:443'
@@ -59,10 +60,7 @@ services:
       - 'traefik.http.routers.whoami.rule=Host(`${whoami_domain}`)'
       - 'traefik.http.routers.whoami.entrypoints=websecure'
       - 'traefik.http.routers.whoami.tls=true'
-      #- 'traefik.http.routers.whoami-https.middlewares=to-https'
-      #- 'traefik.http.middlewares.to-https.redirectscheme.scheme=https'
-      - 'traefik.http.routers.whoami.middlewares=auth'
-      - 'traefik.http.middlewares.auth.basicauth.users=${tr_basicauth_user}:${tr_basicauth_passwd}'
+      - 'traefik.http.routers.whoami.middlewares=default-auth'
       - 'traefik.http.routers.whoami.tls.certresolver=letsencrypt'
     networks:
       - proxy
@@ -160,10 +158,17 @@ services:
       - '--http-address=0.0.0.0:10901'
       - '--query-frontend.downstream-url=http://thanos-querier:10902'
     ports:
-      - 10901:10901
+      - 10901
     depends_on:
       - thanos-querier
     restart: always
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.query.rule=Host(`${thanos_frontend_domain}`)'
+      - 'traefik.http.routers.query.entrypoints=websecure'
+      - 'traefik.http.routers.query.tls=true'
+      - 'traefik.http.routers.query.middlewares=default-auth'
+      - 'traefik.http.routers.query.tls.certresolver=letsencrypt'
     networks:
       - intern
       - proxy
@@ -307,13 +312,20 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.27.0
     ports:
-      - 9093:9093
+      - 9093
     volumes:
       - ./alertmanager/:/etc/alertmanager/
     restart: always
     command:
       - '--config.file=/etc/alertmanager/config.yaml'
       - '--storage.path=/alertmanager'
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.alertmanager.rule=Host(`${alertmanager_domain}`)'
+      - 'traefik.http.routers.alertmanager.entrypoints=websecure'
+      - 'traefik.http.routers.alertmanager.tls=true'
+      - 'traefik.http.routers.alertmanager.middlewares=default-auth'
+      - 'traefik.http.routers.alertmanager.tls.certresolver=letsencrypt'
     networks:
       - proxy
       - intern
@@ -339,13 +351,20 @@ services:
       #- prometheus-2
       - prometheus-3
     ports:
-      - 3000:3000
+      - 3000
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/:/etc/grafana/provisioning/
     env_file:
       - ./grafana/config.monitoring
     restart: always
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.grafana.rule=Host(`${grafana_domain}`)'
+      - 'traefik.http.routers.grafana.entrypoints=websecure'
+      - 'traefik.http.routers.grafana.tls=true'
+      - 'traefik.http.routers.grafana.middlewares=default-auth'
+      - 'traefik.http.routers.grafana.tls.certresolver=letsencrypt'
     networks:
       - proxy
       - intern
