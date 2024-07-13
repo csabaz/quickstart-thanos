@@ -15,7 +15,6 @@ services:
       - '--providers.docker=true'
       - '--providers.docker.exposedByDefault=false'
       - '--api=true'
-      - '--global.middlewares=default-auth'
       - '--metrics.prometheus.addrouterslabels=true'
       #- '--certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory'
       - '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
@@ -163,6 +162,7 @@ services:
     restart: always
     labels:
       - 'traefik.enable=true'
+      - 'traefik.port=10901'
       - 'traefik.http.routers.query.rule=Host(`${thanos_frontend_domain}`)'
       - 'traefik.http.routers.query.entrypoints=websecure'
       - 'traefik.http.routers.query.tls=true'
@@ -320,6 +320,7 @@ services:
       - '--storage.path=/alertmanager'
     labels:
       - 'traefik.enable=true'
+      - 'traefik.port=9093'
       - 'traefik.http.routers.alertmanager.rule=Host(`${alertmanager_domain}`)'
       - 'traefik.http.routers.alertmanager.entrypoints=websecure'
       - 'traefik.http.routers.alertmanager.tls=true'
@@ -359,6 +360,7 @@ services:
     restart: always
     labels:
       - 'traefik.enable=true'
+      - 'traefik.port=3000'
       - 'traefik.http.routers.grafana.rule=Host(`${grafana_domain}`)'
       - 'traefik.http.routers.grafana.entrypoints=websecure'
       - 'traefik.http.routers.grafana.tls=true'
