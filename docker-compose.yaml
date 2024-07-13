@@ -176,18 +176,18 @@ services:
       - '--http-address=0.0.0.0:10902'
       - '--query.replica-label=replica'
       - '--store=thanos-sidecar-1:10091'
-      - '--store=thanos-sidecar-2:10091'
+      #- '--store=thanos-sidecar-2:10091'
       - '--store=thanos-sidecar-3:10091'
-      - '--store=thanos-sidecar-4:10091'
+      #- '--store=thanos-sidecar-4:10091'
       - '--store=thanos-store-gateway:10091'
       - '--store=thanos-ruler:10091'
     ports:
       - 10902:10902
     depends_on:
       - thanos-sidecar-1
-      - thanos-sidecar-2
+      #- thanos-sidecar-2
       - thanos-sidecar-3
-      - thanos-sidecar-4
+      #- thanos-sidecar-4
     restart: always
     networks:
       - intern
@@ -336,7 +336,8 @@ services:
     user: "104"
     depends_on:
       - prometheus-1
-      - prometheus-2
+      #- prometheus-2
+      - prometheus-3
     ports:
       - 3000:3000
     volumes:
