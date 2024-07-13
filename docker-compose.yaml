@@ -314,7 +314,7 @@ services:
     command:
       - '--config.file=/etc/alertmanager/config.yaml'
       - '--storage.path=/alertmanager'
-      networks:
+    networks:
       - proxy
       - intern
 
