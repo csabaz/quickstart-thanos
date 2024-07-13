@@ -1,72 +1,15 @@
-version: '3.7'
+---
+version: '3.1'
+
+volumes:
+    prometheus1_data: {}
+    prometheus2_data: {}
+    prometheus3_data: {}
+    prometheus4_data: {}
+    grafana_data: {}
+    minio_data: {}
+
 services:
-  traefik:
-    image: 'traefik:v3.0'
-    container_name: traefik
-    restart: unless-stopped
-    command:
-      - '--log.level=INFO'
-      - '--accesslog=true'
-      - '--accessLog.filePath=/var/log/access.log'
-      - '--accessLog.filters.statusCodes=400-499'
-      - '--entrypoints.web.address=:80'
-      - '--entrypoints.web.http.redirections.entryPoint.to=websecure'
-      - '--entrypoints.web.http.redirections.entryPoint.scheme=https'
-      - '--entrypoints.websecure.address=:443'
-      - '--providers.docker=true'
-      - '--providers.docker.exposedByDefault=false'
-      - '--api=true'
-      - '--metrics.prometheus.addrouterslabels=true'
-      #- '--certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory'
-      - '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
-      - '--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare'
-      - '--certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=15'
-      - '--certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53'
-      - '--entrypoints.websecure.http.tls.domains[0].main=${websecure_main}'
-      - '--entrypoints.websecure.http.tls.domains[0].sans=${websecure_sans}'
-    environment:
-      - CLOUDFLARE_EMAIL=${cloudflare_email}
-      - CLOUDFLARE_DNS_API_TOKEN=${cloudflare_api_token}
-    labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.traefik.entrypoints=websecure'
-      #- 'traefik.http.routers.traefik-https.middlewares=to-https'
-      #- 'traefik.http.middlewares.to-https.redirectscheme.scheme=https'
-      #- 'traefik.http.routers.to-https.rule=HostRegexp(`{host:.+}`)'
-      #- 'traefik.http.routers.to-https.entrypoints=http'
-      - 'traefik.http.routers.traefik.rule=Host(`${traefik_domain}`)'
-      - 'traefik.http.routers.traefik.service=api@internal'
-      - 'traefik.http.routers.traefik.tls=true'
-      - 'traefik.http.routers.traefik.tls.certresolver=letsencrypt'
-      - 'traefik.docker.network=proxy'
-      - 'traefik.http.routers.traefik.middlewares=auth'
-      - 'traefik.http.middlewares.auth.basicauth.users=${tr_basicauth_user}:${tr_basicauth_passwd}'
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - '/etc/localtime:/etc/localtime:ro'
-      - './data/letsencrypt:/letsencrypt'
-      - '/var/run/docker.sock:/var/run/docker.sock:ro'
-      - '/var/log/traefik:/var/log'
-    networks:
-      - proxy
-
-  whoami:
-    image: containous/whoami
-    labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.whoami.rule=Host(`${whoami_domain}`)'
-      - 'traefik.http.routers.whoami.entrypoints=websecure'
-      - 'traefik.http.routers.whoami.tls=true'
-      #- 'traefik.http.routers.whoami-https.middlewares=to-https'
-      #- 'traefik.http.middlewares.to-https.redirectscheme.scheme=https'
-      - 'traefik.http.routers.whoami.middlewares=auth'
-      - 'traefik.http.middlewares.auth.basicauth.users=${tr_basicauth_user}:${tr_basicauth_passwd}'
-      - 'traefik.http.routers.whoami.tls.certresolver=letsencrypt'
-    networks:
-      - proxy
-
     prometheus-1:
         image: prom/prometheus:v2.53.1
         volumes:
@@ -82,6 +25,28 @@ services:
             - '--web.console.templates=/usr/share/prometheus/consoles'
         ports:
             - 9081:9090
+        links:
+            - cadvisor:cadvisor
+            - alertmanager:alertmanager
+        depends_on:
+            - cadvisor
+        restart: always
+
+    prometheus-2:
+        image: prom/prometheus:v2.53.1
+        volumes:
+            - ./prometheus/:/etc/prometheus/
+            - prometheus2_data:/prometheus
+        command:
+            - '--config.file=/etc/prometheus/prometheus2.yaml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--storage.tsdb.max-block-duration=30m'
+            - '--storage.tsdb.min-block-duration=30m'
+            - '--web.enable-lifecycle'
+            - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+            - '--web.console.templates=/usr/share/prometheus/consoles'
+        ports:
+            - 9082:9090
         links:
             - cadvisor:cadvisor
             - alertmanager:alertmanager
@@ -111,6 +76,28 @@ services:
             - cadvisor
         restart: always
 
+    prometheus-4:
+        image: prom/prometheus:v2.53.1
+        volumes:
+            - ./prometheus/:/etc/prometheus/
+            - prometheus4_data:/prometheus
+        command:
+            - '--config.file=/etc/prometheus/prometheus4.yaml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--storage.tsdb.max-block-duration=30m'
+            - '--storage.tsdb.min-block-duration=30m'
+            - '--web.enable-lifecycle'
+            - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+            - '--web.console.templates=/usr/share/prometheus/consoles'
+        ports:
+            - 9084:9090
+        links:
+            - cadvisor:cadvisor
+            - alertmanager:alertmanager
+        depends_on:
+            - cadvisor
+        restart: always
+
     thanos-sidecar-1:
         image: quay.io/thanos/thanos:v0.31.0
         volumes:
@@ -128,7 +115,24 @@ services:
             - minio
         restart: always
 
-   thanos-sidecar-3:
+    thanos-sidecar-2:
+        image: quay.io/thanos/thanos:v0.31.0
+        volumes:
+            - ./thanos/:/etc/thanos/
+            - prometheus2_data:/prometheus
+        command:
+            - 'sidecar'
+            - '--tsdb.path=/prometheus'
+            - '--prometheus.url=http://prometheus-2:9090'
+            - '--grpc-address=0.0.0.0:10091'
+            - '--http-address=0.0.0.0:10902'
+            - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
+        depends_on:
+            - prometheus-2
+            - minio
+        restart: always
+
+    thanos-sidecar-3:
         image: quay.io/thanos/thanos:v0.31.0
         volumes:
             - ./thanos/:/etc/thanos/
@@ -142,6 +146,23 @@ services:
             - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
         depends_on:
             - prometheus-3
+            - minio
+        restart: always
+
+    thanos-sidecar-4:
+        image: quay.io/thanos/thanos:v0.31.0
+        volumes:
+            - ./thanos/:/etc/thanos/
+            - prometheus4_data:/prometheus
+        command:
+            - 'sidecar'
+            - '--tsdb.path=/prometheus'
+            - '--prometheus.url=http://prometheus-4:9090'
+            - '--grpc-address=0.0.0.0:10091'
+            - '--http-address=0.0.0.0:10902'
+            - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
+        depends_on:
+            - prometheus-4
             - minio
         restart: always
 
@@ -315,19 +336,3 @@ services:
         env_file:
             - ./grafana/config.monitoring
         restart: always
-
-
-
-networks:
-  proxy:
-    external: true
-  intern:
-#    external: true
-
-volumes:
-    prometheus1_data: {}
-#    prometheus2_data: {}
-    prometheus3_data: {}
-#    prometheus4_data: {}
-    grafana_data: {}
-    minio_data: {}
