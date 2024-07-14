@@ -3,16 +3,20 @@
 tls:
   certificates:
     # Thanos bucket WebUI certificate
-    - certFile: /certificates:/bucket-th.locdev.net.cert
-      keyFile: /certificates:/bucket-th.locdev.net.key
+    - certFile: /certificates/bucket-th.locdev.net.cert
+      keyFile: /certificates/bucket-th.locdev.net.key
 
     # Thanos query WebUI certificate
-    - certFile: /certificates:/query-th.locdev.net.cert
-      keyFile: /certificates:/query-th.locdev.net.key
-tls:
+    - certFile: /certificates/query-th.locdev.net.cert
+      keyFile: /certificates/query-th.locdev.net.key
+
+    # Thanos query WebUI certificate
+    - certFile: /certificates/minio-th.locdev.net.cert
+      keyFile: /certificates/minio-th.locdev.net.key
+
   stores:
     default:
       defaultCertificate:
       # Wildcard default certificate
-        certFile: /certificates:/locdev.net.cert
-        keyFile: /certificates:/locdev.net.key
+        certFile: /certificates/locdev.net.cert
+        keyFile: /certificates/locdev.net.key

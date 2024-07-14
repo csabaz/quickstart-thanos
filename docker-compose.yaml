@@ -15,36 +15,38 @@ services:
       - '--providers.docker=true'
       - '--providers.docker.exposedByDefault=false'
       - '--api=true'
-      - '--metrics.prometheus.addrouterslabels=true'
+      - '--metrics.prometheus=true'
+      - '--metrics.prometheus.addEntryPointsLabels=true'
+      - '--metrics.prometheus.addServicesLabels=true'
+      - '--metrics.prometheus.buckets=0.1,0.3,1.2,5.0'
+      - '--entrypoints.metrics.address=:8082'
+      - '--metrics.prometheus.entryPoint=metrics'
       - '--providers.file.directory=/configuration/'
       - '--providers.file.watch=true'
       #- '--certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory'
-      - '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
-      - '--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare'
-      - '--certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=15'
-      - '--certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53'
-      - '--entrypoints.websecure.http.tls.domains[0].main=${websecure_main}'
-      - '--entrypoints.websecure.http.tls.domains[0].sans=${websecure_sans}'
+      #- '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
+      #- '--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare'
+      #- '--certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=15'
+      #- '--certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53'
+      #- '--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json'
+      #- '--entrypoints.websecure.http.tls.domains[0].main=${websecure_main}'
+      #- '--entrypoints.websecure.http.tls.domains[0].sans=${websecure_sans}'
     environment:
       - CLOUDFLARE_EMAIL=${cloudflare_email}
       - CLOUDFLARE_DNS_API_TOKEN=${cloudflare_api_token}
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.traefik.entrypoints=websecure'
-      #- 'traefik.http.routers.traefik-https.middlewares=to-https'
-      #- 'traefik.http.middlewares.to-https.redirectscheme.scheme=https'
-      #- 'traefik.http.routers.to-https.rule=HostRegexp(`{host:.+}`)'
-      #- 'traefik.http.routers.to-https.entrypoints=http'
       - 'traefik.http.routers.traefik.rule=Host(`${traefik_domain}`)'
       - 'traefik.http.routers.traefik.service=api@internal'
       - 'traefik.http.routers.traefik.tls=true'
-      - 'traefik.http.routers.traefik.tls.certresolver=letsencrypt'
-      - 'traefik.docker.network=proxy'
       - 'traefik.http.routers.traefik.middlewares=default-auth'
       - 'traefik.http.middlewares.default-auth.basicauth.users=${user1}:${pass1},${user2}:${pass2}'
+      #- 'traefik.http.routers.traefik.tls.certresolver=letsencrypt'
     ports:
       - '80:80'
       - '443:443'
+      - '8082:8082'
     volumes:
       - '/etc/localtime:/etc/localtime:ro'
       - './data/letsencrypt:/letsencrypt'
@@ -52,20 +54,6 @@ services:
       - './data/certificates/:/certificates/'
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
       - '/var/log/traefik:/var/log'
-    networks:
-      - proxy
-
-  whoami:
-    image: containous/whoami
-    labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.whoami.rule=Host(`${whoami_domain}`)'
-      - 'traefik.http.routers.whoami.entrypoints=websecure'
-      - 'traefik.http.routers.whoami.tls=true'
-      - 'traefik.http.routers.whoami.middlewares=default-auth'
-      - 'traefik.http.routers.whoami.tls.certresolver=letsencrypt'
-    networks:
-      - proxy
 
   prometheus-1:
     image: prom/prometheus:v2.53.1
@@ -88,8 +76,6 @@ services:
     depends_on:
       - cadvisor
     restart: always
-    networks:
-      - intern
 
   prometheus-3:
     image: prom/prometheus:v2.53.1
@@ -112,8 +98,6 @@ services:
     depends_on:
       - cadvisor
     restart: always
-    networks:
-      - intern
 
   thanos-sidecar-1:
     image: quay.io/thanos/thanos:v0.31.0
@@ -126,13 +110,20 @@ services:
       - '--prometheus.url=http://prometheus-1:9090'
       - '--grpc-address=0.0.0.0:10091'
       - '--http-address=0.0.0.0:10902'
-      - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
+      - |
+        --objstore.config=
+        type: S3
+        config:
+          bucket: thanos-bucket
+          access_key: ${minio_root_user}
+          secret_key: ${minio_root_pass}
+          endpoint: minio:9000
+          insecure: true
+          signature_version2: false
     depends_on:
       - prometheus-1
       - minio
     restart: always
-    networks:
-      - intern
 
   thanos-sidecar-3:
     image: quay.io/thanos/thanos:v0.31.0
@@ -145,13 +136,20 @@ services:
       - '--prometheus.url=http://prometheus-3:9090'
       - '--grpc-address=0.0.0.0:10091'
       - '--http-address=0.0.0.0:10902'
-      - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
+      - |
+        --objstore.config=
+        type: S3
+        config:
+          bucket: thanos-bucket
+          access_key: ${minio_root_user}
+          secret_key: ${minio_root_pass}
+          endpoint: minio:9000
+          insecure: true
+          signature_version2: false
     depends_on:
       - prometheus-3
       - minio
     restart: always
-    networks:
-      - intern
 
   thanos-query-frontend:
     image: quay.io/thanos/thanos:v0.31.0
@@ -160,7 +158,7 @@ services:
       - '--http-address=0.0.0.0:10901'
       - '--query-frontend.downstream-url=http://thanos-querier:10902'
     ports:
-      - 10901
+      - 10901:10901
     depends_on:
       - thanos-querier
     restart: always
@@ -172,9 +170,6 @@ services:
       - 'traefik.http.routers.query.tls=true'
       - 'traefik.http.routers.query.middlewares=default-auth'
       #- 'traefik.http.routers.query.tls.certresolver=letsencrypt'
-    networks:
-      - intern
-      - proxy
 
   thanos-querier:
     image: quay.io/thanos/thanos:v0.31.0
@@ -197,8 +192,6 @@ services:
       - thanos-sidecar-3
       #- thanos-sidecar-4
     restart: always
-    networks:
-      - intern
 
   thanos-store-gateway:
     image: quay.io/thanos/thanos:v0.31.0
@@ -209,28 +202,42 @@ services:
       - '--grpc-address=0.0.0.0:10091'
       - '--http-address=0.0.0.0:10902'
       - '--data-dir=/tmp/thanos/store'
-      - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
+      - |
+        --objstore.config=
+        type: S3
+        config:
+          bucket: thanos-bucket
+          access_key: ${minio_root_user}
+          secret_key: ${minio_root_pass}
+          endpoint: minio:9000
+          insecure: true
+          signature_version2: false
     depends_on:
       - minio
     restart: always
-    networks:
-      - intern
 
   thanos-compactor:
     image: quay.io/thanos/thanos:v0.31.0
     volumes:
       - ./thanos/:/etc/thanos/
     command:
-      - 'compact'
+      - 'compact' 
       - '--log.level=debug'
       - '--data-dir=/data'
-      - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
       - '--wait'
+      - |
+        --objstore.config=
+        type: S3
+        config:
+          bucket: thanos-bucket
+          access_key: ${minio_root_user}
+          secret_key: ${minio_root_pass}
+          endpoint: minio:9000
+          insecure: true
+          signature_version2: false
     depends_on:
       - minio
     restart: always
-    networks:
-      - intern
 
   thanos-ruler:
     image: quay.io/thanos/thanos:v0.31.0
@@ -246,17 +253,24 @@ services:
       - '--rule-file=/etc/thanos/*.rules.yaml'
       - '--alertmanagers.url=http://alertmanager:9093'
       - '--query=thanos-querier:10902'
-      - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
       - "--label=ruler_cluster=\"vegas\""
       - "--label=ruler_replica=\"r1\""
+      - |
+        --objstore.config=
+        type: S3
+        config:
+          bucket: thanos-bucket
+          access_key: ${minio_root_user}
+          secret_key: ${minio_root_pass}
+          endpoint: minio:9000
+          insecure: true
+          signature_version2: false
     ports:
       - 10903:10902
     depends_on:
       - minio
       - thanos-querier
     restart: always
-    networks:
-      - intern
 
   thanos-bucket-web:
     image: quay.io/thanos/thanos:v0.31.0
@@ -268,13 +282,21 @@ services:
       - 'web'
       - '--http-address=0.0.0.0:10902'
       - '--log.level=debug'
-      - '--objstore.config-file=/etc/thanos/bucket_config.yaml'
       - '--refresh=5m'
       - '--timeout=2m'
       - '--label=replica'
+      - |
+        --objstore.config=
+        type: S3
+        config:
+          bucket: thanos-bucket
+          access_key: ${minio_root_user}
+          secret_key: ${minio_root_pass}
+          endpoint: minio:9000
+          insecure: true
+          signature_version2: false
     ports:
-      #- 10904:10902
-      - 10902
+      - 10904:10902
     depends_on:
       - minio
     restart: always
@@ -286,24 +308,31 @@ services:
       - 'traefik.http.routers.bucket-web.tls=true'
       - 'traefik.http.routers.bucket-web.middlewares=default-auth'
       #- 'traefik.http.routers.bucket-web.tls.certresolver=letsencrypt'
-    networks:
-      - intern
 
   minio:
-    #image: minio/minio:RELEASE.2020-05-01T22-19-14Z
-    image: minio/minio:RELEASE.2024-06-22T05-26-45Z
-    volumes:
-      - minio_data:/data
-    entrypoint: sh
-    command: -c 'mkdir -p /data/demo-bucket && /usr/bin/minio server /data'
+    image: docker.io/bitnami/minio:2024
     environment:
-      - MINIO_ACCESS_KEY=${minio_access_key}
-      - MINIO_SECRET_KEY=${minio_secret_key}
+      - MINIO_ROOT_USER=${minio_root_user}
+      - MINIO_ROOT_PASSWORD=${minio_root_pass}
+      - MINIO_DEFAULT_BUCKETS=${minio_default_bucket}
       - MINIO_PROMETHEUS_AUTH_TYPE=public
     ports:
       - 9000:9000
-    networks:
-      - intern
+      - 9001:9001
+    volumes:
+      - minio_data:/bitnami/minio/data
+    labels:
+      - 'traefik.enable=true'
+      #- 'traefik.port=9001'
+      #- 'traefik.http.routers.minioconsole.service=mconsole'
+      - 'traefik.http.routers.minioconsole.tls=true'
+      - 'traefik.http.services.minioconsole.loadbalancer.server.port=9001'
+      - 'traefik.http.routers.minioconsole.rule=Host(`${minio_domain}`)'
+      - 'traefik.http.routers.minioconsole.entrypoints=websecure'
+      #- 'traefik.http.routers.minioconsole.middlewares=default-auth'
+      #- 'traefik.http.routers.minioconsole.tls.certresolver=letsencrypt'
+      #- 'traefik.http.routers.minio.service=minioapi'
+      #- 'traefik.http.services.minioapi.loadbalancer.server.port=9000'
 
   node-exporter:
     image: prom/node-exporter:v1.8.1
@@ -319,13 +348,11 @@ services:
     ports:
       - 9100:9100
     restart: always
-    networks:
-      - intern
 
   alertmanager:
     image: prom/alertmanager:v0.27.0
     ports:
-      - 9093
+      - :9093:9093
     volumes:
       - ./alertmanager/:/etc/alertmanager/
     restart: always
@@ -339,10 +366,7 @@ services:
       - 'traefik.http.routers.alertmanager.entrypoints=websecure'
       - 'traefik.http.routers.alertmanager.tls=true'
       - 'traefik.http.routers.alertmanager.middlewares=default-auth'
-      - 'traefik.http.routers.alertmanager.tls.certresolver=letsencrypt'
-    networks:
-      - proxy
-      - intern
+      #- 'traefik.http.routers.alertmanager.tls.certresolver=letsencrypt'
 
   cadvisor:
     image: gcr.io/google_containers/cadvisor:v0.36.0
@@ -354,8 +378,6 @@ services:
     ports:
       - 8080:8080
     restart: always
-    networks:
-      - intern
 
   grafana:
     image: grafana/grafana:10.4.5
@@ -365,7 +387,7 @@ services:
       #- prometheus-2
       - prometheus-3
     ports:
-      - 3000
+      - 3000:3000
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/:/etc/grafana/provisioning/
@@ -379,17 +401,8 @@ services:
       - 'traefik.http.routers.grafana.entrypoints=websecure'
       - 'traefik.http.routers.grafana.tls=true'
       - 'traefik.http.routers.grafana.middlewares=default-auth'
-      - 'traefik.http.routers.grafana.tls.certresolver=letsencrypt'
-    networks:
-      - proxy
-      - intern
+      #- 'traefik.http.routers.grafana.tls.certresolver=letsencrypt'
 
-
-networks:
-  proxy:
-    external: true
-  intern:
-#    external: true
 
 volumes:
     prometheus1_data: {}

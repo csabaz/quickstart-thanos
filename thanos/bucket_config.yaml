@@ -1,7 +1,8 @@
 type: S3
 config:
-  bucket: demo-bucket
-  access_key: smth
-  secret_key: Need8Chars
+  bucket: thanos-bucket
+  access_key: ${minio_root_user}
+  secret_key: ${minio_root_pass}
   endpoint: minio:9000
   insecure: true
+  signature_version2: false
