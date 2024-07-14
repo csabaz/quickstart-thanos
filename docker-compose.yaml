@@ -16,6 +16,8 @@ services:
       - '--providers.docker.exposedByDefault=false'
       - '--api=true'
       - '--metrics.prometheus.addrouterslabels=true'
+      - '--providers.file.directory=/configuration/'
+      - '--providers.file.watch=true'
       #- '--certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory'
       - '--certificatesresolvers.letsencrypt.acme.dnschallenge=true'
       - '--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare'
@@ -46,6 +48,8 @@ services:
     volumes:
       - '/etc/localtime:/etc/localtime:ro'
       - './data/letsencrypt:/letsencrypt'
+      - './data/configuration/:/configuration/'
+      - './data/certificates/:/certificates/'
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
       - '/var/log/traefik:/var/log'
     networks:
@@ -167,7 +171,7 @@ services:
       - 'traefik.http.routers.query.entrypoints=websecure'
       - 'traefik.http.routers.query.tls=true'
       - 'traefik.http.routers.query.middlewares=default-auth'
-      - 'traefik.http.routers.query.tls.certresolver=letsencrypt'
+      #- 'traefik.http.routers.query.tls.certresolver=letsencrypt'
     networks:
       - intern
       - proxy
@@ -269,10 +273,19 @@ services:
       - '--timeout=2m'
       - '--label=replica'
     ports:
-      - 10904:10902
+      #- 10904:10902
+      - 10902
     depends_on:
       - minio
     restart: always
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=10902'
+      - 'traefik.http.routers.alertmanager.rule=Host(`${thanos_bucket_web_domain}`)'
+      - 'traefik.http.routers.alertmanager.entrypoints=websecure'
+      - 'traefik.http.routers.alertmanager.tls=true'
+      - 'traefik.http.routers.alertmanager.middlewares=default-auth'
+      #- 'traefik.http.routers.alertmanager.tls.certresolver=letsencrypt'
     networks:
       - intern
 

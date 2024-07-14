@@ -1,0 +1,18 @@
+# Dynamic configuration
+# in configuration/certificates.yaml
+tls:
+  certificates:
+    # Thanos bucket WebUI certificate
+    - certFile: /certificates:/bucket-th.locdev.net.cert
+      keyFile: /certificates:/bucket-th.locdev.net.key
+
+    # Thanos query WebUI certificate
+    - certFile: /certificates:/query-th.locdev.net.cert
+      keyFile: /certificates:/query-th.locdev.net.key
+tls:
+  stores:
+    default:
+      defaultCertificate:
+      # Wildcard default certificate
+        certFile: /certificates:/locdev.net.cert
+        keyFile: /certificates:/locdev.net.key
